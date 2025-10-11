@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "549538650615",
+    "project_id": "water-management-system-d059c",
+    "storage_bucket": "water-management-system-d059c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:549538650615:android:49a9befb4118d3389af6f2",
+        "android_client_info": {
+          "package_name": "com.example.water_management_system"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "549538650615-qbsv9fqc165rmlt63hmn1q7gj56p1a7l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.water_management_system",
+            "certificate_hash": "2c0e6c0f5ab1ff78ce27f63658d9bca7f8c25866"
+          }
+        },
+        {
+          "client_id": "549538650615-tavpnp8d3urvdg78joq4d4fg1och70sd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkE1bC5bUxQRLmlv1WBcurPYYuzm15X2w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "549538650615-tavpnp8d3urvdg78joq4d4fg1och70sd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
