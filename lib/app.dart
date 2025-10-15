@@ -26,6 +26,7 @@ class WaterManagementApp extends StatelessWidget {
   Invoice _createDummyInvoice() {
     return Invoice(
       id: 'temp',
+      userId: 'temp',
       customerId: 'temp',
       customerName: 'عميل مؤقت',
       meterReadingId: 'temp',
@@ -45,9 +46,15 @@ class WaterManagementApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<AuthService>(create: (_) => AuthService()),
-        Provider<CustomerService>(create: (_) => CustomerService()),
-        Provider<ReadingService>(create: (_) => ReadingService()),
-        Provider<InvoiceService>(create: (_) => InvoiceService()),
+        ProxyProvider<AuthService, CustomerService>(
+          update: (_, authService, __) => CustomerService(authService),
+        ),
+        ProxyProvider<AuthService, ReadingService>(
+          update: (_, authService, __) => ReadingService(authService),
+        ),
+        ProxyProvider<AuthService, InvoiceService>(
+          update: (_, authService, __) => InvoiceService(authService),
+        ),
         Provider<ReportService>(create: (_) => ReportService()),
         Provider<BackupService>(create: (_) => BackupService()),
       ],

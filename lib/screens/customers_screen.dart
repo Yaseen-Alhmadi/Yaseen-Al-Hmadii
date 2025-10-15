@@ -1,44 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/customer_service.dart';
+import '../repositories/customer_repository.dart';
+import '../models/customer_model.dart';
 import 'add_customer_screen.dart';
 import 'add_reading_screen.dart';
 
 class CustomersScreen extends StatelessWidget {
+  const CustomersScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
+    final customerRepo =
+        Provider.of<CustomerRepository>(context, listen: false);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('إدارة العملاء'),
+        title: const Text('إدارة العملاء'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: Icon(Icons.search),
+            icon: const Icon(Icons.search),
             onPressed: () {
               // سنضيف البحث لاحقاً
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('ميزة البحث قريباً')),
+                const SnackBar(content: Text('ميزة البحث قريباً')),
               );
             },
           ),
         ],
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: Provider.of<CustomerService>(context).getCustomers(),
+      body: StreamBuilder<List<Customer>>(
+        stream: customerRepo.customersStream,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('خطأ في تحميل البيانات'));
+            return Center(
+                child: Text('خطأ في تحميل البيانات: ${snapshot.error}'));
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           }
 
           final customers = snapshot.data ?? [];
 
           if (customers.isEmpty) {
-            return Center(
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -62,44 +69,48 @@ class CustomersScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => AddCustomerScreen()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddCustomerScreen()),
+          );
         },
-        child: Icon(Icons.add),
         backgroundColor: Colors.blue,
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  Widget _buildCustomerCard(Map<String, dynamic> customer, BuildContext context) {
+  Widget _buildCustomerCard(Customer customer, BuildContext context) {
     return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Colors.blue,
           child: Text(
-            customer['name']?.toString().substring(0, 1) ?? '?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            customer.name.isNotEmpty ? customer.name.substring(0, 1) : '?',
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         title: Text(
-          customer['name'] ?? 'بدون اسم',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          customer.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('العنوان: ${customer['address'] ?? 'غير محدد'}'),
-            Text('الهاتف: ${customer['phone'] ?? 'غير محدد'}'),
-            Text('رقم العداد: ${customer['meterNumber'] ?? 'غير محدد'}'),
-            if (customer['lastReading'] != null)
-              Text('آخر قراءة: ${customer['lastReading']}'),
+            Text('العنوان: ${customer.address}'),
+            Text('الهاتف: ${customer.phone}'),
+            Text('رقم العداد: ${customer.meterNumber}'),
+            if (customer.lastReading > 0)
+              Text('آخر قراءة: ${customer.lastReading}'),
           ],
         ),
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
             _handleMenuSelection(value, customer, context);
           },
-          itemBuilder: (BuildContext context) => [
+          itemBuilder: (BuildContext context) => const [
             PopupMenuItem(value: 'add_reading', child: Text('إضافة قراءة')),
             PopupMenuItem(value: 'view_details', child: Text('عرض التفاصيل')),
             PopupMenuItem(value: 'edit', child: Text('تعديل')),
@@ -110,12 +121,16 @@ class CustomersScreen extends StatelessWidget {
     );
   }
 
-  void _handleMenuSelection(String value, Map<String, dynamic> customer, BuildContext context) {
+  void _handleMenuSelection(
+      String value, Customer customer, BuildContext context) {
     switch (value) {
       case 'add_reading':
-        Navigator.push(context, MaterialPageRoute(
-          builder: (_) => AddReadingScreen(customer: customer)
-        ));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddReadingScreen(customer: customer.toMap()),
+          ),
+        );
         break;
       case 'view_details':
         _showCustomerDetails(customer, context);
@@ -129,61 +144,82 @@ class CustomersScreen extends StatelessWidget {
     }
   }
 
-  void _showCustomerDetails(Map<String, dynamic> customer, BuildContext context) {
+  void _showCustomerDetails(Customer customer, BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('تفاصيل العميل'),
+        title: const Text('تفاصيل العميل'),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('الاسم: ${customer['name']}'),
-              Text('العنوان: ${customer['address']}'),
-              Text('الهاتف: ${customer['phone']}'),
-              Text('رقم العداد: ${customer['meterNumber']}'),
-              Text('القراءة الأولية: ${customer['initialReading']}'),
-              Text('آخر قراءة: ${customer['lastReading'] ?? 'لا يوجد'}'),
+              Text('الاسم: ${customer.name}'),
+              Text('العنوان: ${customer.address}'),
+              Text('الهاتف: ${customer.phone}'),
+              Text('رقم العداد: ${customer.meterNumber}'),
+              Text(
+                  'آخر قراءة: ${customer.lastReading > 0 ? customer.lastReading : 'لا يوجد'}'),
+              Text('تاريخ آخر قراءة: ${customer.lastReadingDate ?? 'لا يوجد'}'),
+              Text('الحالة: ${customer.status}'),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إغلاق'),
+            child: const Text('إغلاق'),
           ),
         ],
       ),
     );
   }
 
-  void _editCustomer(Map<String, dynamic> customer, BuildContext context) {
+  void _editCustomer(Customer customer, BuildContext context) {
     // سنضيف التعديل لاحقاً
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('ميزة التعديل قريباً')),
+      const SnackBar(content: Text('ميزة التعديل قريباً')),
     );
   }
 
-  void _deleteCustomer(Map<String, dynamic> customer, BuildContext context) {
+  void _deleteCustomer(Customer customer, BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('حذف العميل'),
-        content: Text('هل أنت متأكد من حذف العميل ${customer['name']}؟'),
+        title: const Text('حذف العميل'),
+        content: Text('هل أنت متأكد من حذف العميل ${customer.name}؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء'),
+            child: const Text('إلغاء'),
           ),
           TextButton(
-            onPressed: () {
-              // سنضيف الحذف لاحقاً
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('ميزة الحذف قريباً')),
-              );
+            onPressed: () async {
+              final customerRepo =
+                  Provider.of<CustomerRepository>(context, listen: false);
+              try {
+                await customerRepo.deleteCustomer(customer.id);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('تم حذف العميل بنجاح'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('فشل في حذف العميل: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
-            child: Text('حذف', style: TextStyle(color: Colors.red)),
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

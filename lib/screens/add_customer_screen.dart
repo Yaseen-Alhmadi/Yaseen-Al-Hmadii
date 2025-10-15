@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/customer_service.dart';
+import '../repositories/customer_repository.dart';
+import '../models/customer_model.dart';
+import '../services/auth_service.dart';
 
 class AddCustomerScreen extends StatefulWidget {
   const AddCustomerScreen({super.key});
@@ -44,22 +46,40 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
       setState(() => _isLoading = true);
 
       try {
-        final customerService =
-            Provider.of<CustomerService>(context, listen: false);
+        final customerRepo =
+            Provider.of<CustomerRepository>(context, listen: false);
+        final authService = Provider.of<AuthService>(context, listen: false);
 
-        await customerService.addCustomer({
-          'name': _nameController.text.trim(),
-          'address': _addressController.text.trim(),
-          'phone': _phoneController.text.trim(),
-          'meterNumber': _meterNumberController.text.trim(),
-          'initialReading': double.parse(_initialReadingController.text),
-          'lastReading': double.parse(_initialReadingController.text),
-        });
+        // الحصول على معرف المستخدم الحالي
+        final userId = await authService.getCurrentUserId();
+        if (userId == null) {
+          throw Exception('لا يوجد مستخدم مسجل دخول');
+        }
+
+        // إنشاء كائن Customer جديد
+        final newCustomer = Customer(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userId: userId,
+          name: _nameController.text.trim(),
+          address: _addressController.text.trim(),
+          phone: _phoneController.text.trim(),
+          meterNumber: _meterNumberController.text.trim(),
+          lastReading: double.parse(_initialReadingController.text),
+          lastReadingDate: DateTime.now().toIso8601String(),
+          status: 'active',
+          createdAt: DateTime.now().toIso8601String(),
+          lastModified: DateTime.now().toIso8601String(),
+          pendingSync: 1, // سيتم المزامنة مع Firebase
+          deleted: 0,
+        );
+
+        // إضافة العميل (سيتم حفظه محلياً ومزامنته مع Firebase تلقائياً)
+        await customerRepo.addCustomer(newCustomer);
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم إضافة العميل بنجاح'),
+            content: Text('تم إضافة العميل بنجاح وجاري المزامنة مع Firebase'),
             backgroundColor: Colors.green,
           ),
         );

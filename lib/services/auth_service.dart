@@ -1,11 +1,19 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'biometric_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final BiometricService _biometricService = BiometricService();
+
+  // مفاتيح SharedPreferences
+  static const String _keyCurrentUserId = 'current_user_id';
+  static const String _keyCurrentUserEmail = 'current_user_email';
+  static const String _keyCurrentUserName = 'current_user_name';
 
   // تسجيل الدخول بالإيميل وكلمة المرور
   Future<Map<String, dynamic>> signInWithEmailAndPassword(
@@ -20,14 +28,17 @@ class AuthService {
       if (user != null) {
         // تحديث بيانات المستخدم في Firestore
         await _updateUserData(user);
-        
+
+        // حفظ معرف المستخدم محلياً
+        await _saveCurrentUserLocally(user.uid, email, user.displayName ?? '');
+
         return {
           'success': true,
           'user': user,
           'message': 'تم تسجيل الدخول بنجاح'
         };
       }
-      
+
       return {'success': false, 'message': 'فشل تسجيل الدخول'};
     } on FirebaseAuthException catch (e) {
       return {'success': false, 'message': _getErrorMessage(e)};
@@ -47,20 +58,20 @@ class AuthService {
       if (user != null) {
         // تحديث الملف الشخصي
         await user.updateDisplayName(username);
-        
+
         // إرسال verification email
         await user.sendEmailVerification();
-        
+
         // حفظ بيانات المستخدم في Firestore
         await _saveUserData(user, username, 'email');
-        
+
         return {
           'success': true,
           'user': user,
           'message': 'تم إنشاء الحساب بنجاح. يرجى التحقق من بريدك الإلكتروني'
         };
       }
-      
+
       return {'success': false, 'message': 'فشل إنشاء الحساب'};
     } on FirebaseAuthException catch (e) {
       return {'success': false, 'message': _getErrorMessage(e)};
@@ -75,7 +86,7 @@ class AuthService {
         return {'success': false, 'message': 'تم إلغاء عملية التسجيل'};
       }
 
-      final GoogleSignInAuthentication googleAuth = 
+      final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
@@ -94,10 +105,13 @@ class AuthService {
           'message': 'تم تسجيل الدخول بحساب Google بنجاح'
         };
       }
-      
+
       return {'success': false, 'message': 'فشل تسجيل الدخول بحساب Google'};
     } catch (e) {
-      return {'success': false, 'message': 'حدث خطأ أثناء تسجيل الدخول بحساب Google'};
+      return {
+        'success': false,
+        'message': 'حدث خطأ أثناء تسجيل الدخول بحساب Google'
+      };
     }
   }
 
@@ -125,7 +139,7 @@ class AuthService {
       if (user != null) {
         // تحديث البيانات في Firebase Auth
         await user.updateDisplayName(displayName);
-        
+
         // تحديث البيانات في Firestore
         await _firestore.collection('users').doc(user.uid).update({
           'displayName': displayName,
@@ -134,12 +148,9 @@ class AuthService {
           'updatedAt': DateTime.now(),
         });
 
-        return {
-          'success': true,
-          'message': 'تم تحديث الملف الشخصي بنجاح'
-        };
+        return {'success': true, 'message': 'تم تحديث الملف الشخصي بنجاح'};
       }
-      
+
       return {'success': false, 'message': 'لم يتم العثور على مستخدم'};
     } catch (e) {
       return {'success': false, 'message': 'فشل في تحديث الملف الشخصي: $e'};
@@ -151,23 +162,20 @@ class AuthService {
       String currentPassword, String newPassword) async {
     try {
       User? user = _auth.currentUser;
-      
+
       if (user != null && user.email != null) {
         // إعادة المصادقة بالمستخدم الحالي
         final credential = EmailAuthProvider.credential(
           email: user.email!,
           password: currentPassword,
         );
-        
+
         await user.reauthenticateWithCredential(credential);
         await user.updatePassword(newPassword);
-        
-        return {
-          'success': true,
-          'message': 'تم تغيير كلمة المرور بنجاح'
-        };
+
+        return {'success': true, 'message': 'تم تغيير كلمة المرور بنجاح'};
       }
-      
+
       return {'success': false, 'message': 'لم يتم العثور على مستخدم'};
     } on FirebaseAuthException catch (e) {
       return {'success': false, 'message': _getErrorMessage(e)};
@@ -175,7 +183,8 @@ class AuthService {
   }
 
   // حفظ بيانات المستخدم في Firestore
-  Future<void> _saveUserData(User user, String username, String loginMethod) async {
+  Future<void> _saveUserData(
+      User user, String username, String loginMethod) async {
     await _firestore.collection('users').doc(user.uid).set({
       'uid': user.uid,
       'email': user.email,
@@ -202,7 +211,8 @@ class AuthService {
   Future<Map<String, dynamic>?> getCurrentUserData() async {
     User? user = _auth.currentUser;
     if (user != null) {
-      DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+      DocumentSnapshot doc =
+          await _firestore.collection('users').doc(user.uid).get();
       return doc.data() as Map<String, dynamic>?;
     }
     return null;
@@ -212,6 +222,83 @@ class AuthService {
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
+    await _clearCurrentUserLocally();
+  }
+
+  // حفظ معرف المستخدم الحالي محلياً
+  Future<void> _saveCurrentUserLocally(
+      String userId, String email, String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCurrentUserId, userId);
+    await prefs.setString(_keyCurrentUserEmail, email);
+    await prefs.setString(_keyCurrentUserName, name);
+    await _biometricService.saveCurrentUserId(userId);
+  }
+
+  // مسح بيانات المستخدم الحالي محلياً
+  Future<void> _clearCurrentUserLocally() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyCurrentUserId);
+    await prefs.remove(_keyCurrentUserEmail);
+    await prefs.remove(_keyCurrentUserName);
+  }
+
+  // الحصول على معرف المستخدم الحالي
+  Future<String?> getCurrentUserId() async {
+    // أولاً: محاولة الحصول عليه من Firebase Auth
+    final user = _auth.currentUser;
+    if (user != null) {
+      return user.uid;
+    }
+
+    // ثانياً: محاولة الحصول عليه من التخزين المحلي (للعمل Offline)
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyCurrentUserId);
+  }
+
+  // الحصول على بيانات المستخدم المحلية
+  Future<Map<String, String>?> getCurrentUserLocalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_keyCurrentUserId);
+    final email = prefs.getString(_keyCurrentUserEmail);
+    final name = prefs.getString(_keyCurrentUserName);
+
+    if (userId != null) {
+      return {
+        'userId': userId,
+        'email': email ?? '',
+        'name': name ?? '',
+      };
+    }
+    return null;
+  }
+
+  // تسجيل الدخول بالبصمة
+  Future<Map<String, dynamic>> signInWithBiometric() async {
+    return await _biometricService.signInWithBiometric();
+  }
+
+  // تفعيل البصمة
+  Future<bool> enableBiometric(String email, String password) async {
+    return await _biometricService.enableBiometric(
+      email: email,
+      password: password,
+    );
+  }
+
+  // تعطيل البصمة
+  Future<void> disableBiometric() async {
+    await _biometricService.disableBiometric();
+  }
+
+  // التحقق من تفعيل البصمة
+  Future<bool> isBiometricEnabled() async {
+    return await _biometricService.isBiometricEnabled();
+  }
+
+  // التحقق من توفر البصمة
+  Future<bool> isBiometricAvailable() async {
+    return await _biometricService.isBiometricAvailable();
   }
 
   // الحصول على رسالة الخطأ

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Invoice {
   String id;
+  String userId;
   String customerId;
   String customerName;
   String meterReadingId;
@@ -19,6 +20,7 @@ class Invoice {
 
   Invoice({
     required this.id,
+    required this.userId,
     required this.customerId,
     required this.customerName,
     required this.meterReadingId,
@@ -39,6 +41,7 @@ class Invoice {
   factory Invoice.fromMap(Map<String, dynamic> data, String id) {
     return Invoice(
       id: id,
+      userId: data['userId'] ?? 'default_user',
       customerId: data['customerId'] ?? '',
       customerName: data['customerName'] ?? '',
       meterReadingId: data['meterReadingId'] ?? '',
@@ -59,6 +62,7 @@ class Invoice {
   // تحويل إلى Map
   Map<String, dynamic> toMap() {
     return {
+      'userId': userId,
       'customerId': customerId,
       'customerName': customerName,
       'meterReadingId': meterReadingId,
@@ -70,7 +74,8 @@ class Invoice {
       'issueDate': Timestamp.fromDate(issueDate),
       'dueDate': Timestamp.fromDate(dueDate),
       'status': status,
-      'paymentDate': paymentDate != null ? Timestamp.fromDate(paymentDate!) : null,
+      'paymentDate':
+          paymentDate != null ? Timestamp.fromDate(paymentDate!) : null,
       'paymentMethod': paymentMethod,
       'notes': notes,
     };

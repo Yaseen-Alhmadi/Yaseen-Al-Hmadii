@@ -20,9 +20,8 @@ class AddReadingScreenState extends State<AddReadingScreen> {
   @override
   void initState() {
     super.initState();
-    _readingController = TextEditingController(
-      text: widget.customer['lastReading']?.toString() ?? '0',
-    );
+    // القراءة الافتراضية = 0 (يمكن للمستخدم إدخال أي قراءة)
+    _readingController = TextEditingController(text: '0');
   }
 
   @override
@@ -40,15 +39,16 @@ class AddReadingScreenState extends State<AddReadingScreen> {
         double previousReading =
             widget.customer['lastReading']?.toDouble() ?? 0.0;
 
-        if (newReading <= previousReading) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('القراءة الجديدة يجب أن تكون أكبر من السابقة')),
-          );
-          return;
+        // السماح بأي قراءة (حتى لو كانت أقل من السابقة)
+        // لأن العميل قد يستخدم عداد جديد أو يتم إعادة ضبط العداد
+        double consumption;
+        if (newReading >= previousReading) {
+          // حالة عادية: القراءة الجديدة أكبر من السابقة
+          consumption = newReading - previousReading;
+        } else {
+          // حالة عداد جديد: القراءة الجديدة هي الاستهلاك
+          consumption = newReading;
         }
-
-        double consumption = newReading - previousReading;
 
         // حساب التكلفة (افتراضي: 0.5 ريال لكل وحدة)
         double rate = 0.5;

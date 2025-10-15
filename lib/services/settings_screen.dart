@@ -30,11 +30,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       setState(() => _isLoading = true);
-      
+
       await SettingsService.saveAllSettings(_settings);
-      
+
       setState(() => _isLoading = false);
-      
+
       AwesomeDialog(
         context: context,
         dialogType: DialogType.success,
@@ -48,12 +48,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _createBackup() async {
     setState(() => _isLoading = true);
-    
+
     final backupService = Provider.of<BackupService>(context, listen: false);
     final result = await backupService.createFullBackup();
-    
+
     setState(() => _isLoading = false);
-    
+
     AwesomeDialog(
       context: context,
       dialogType: result['success'] ? DialogType.success : DialogType.error,
@@ -67,7 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showBackupList() async {
     final backupService = Provider.of<BackupService>(context, listen: false);
     final backups = await backupService.getBackupList();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -81,7 +81,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   itemCount: backups.length,
                   itemBuilder: (context, index) {
                     final backup = backups[index];
-                    final date = DateTime.fromMillisecondsSinceEpoch(backup['timestamp']);
+                    final date = DateTime.fromMillisecondsSinceEpoch(
+                        backup['timestamp']);
                     return ListTile(
                       leading: Icon(Icons.backup),
                       title: Text('${backup['totalRecords']} سجل'),
@@ -110,17 +111,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       dialogType: DialogType.warning,
       animType: AnimType.rightSlide,
       title: 'تأكيد الاستعادة',
-      desc: 'هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟ سيتم استبدال جميع البيانات الحالية.',
+      desc:
+          'هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟ سيتم استبدال جميع البيانات الحالية.',
       btnCancelOnPress: () {},
       btnOkText: 'استعادة',
       btnOkOnPress: () async {
         setState(() => _isLoading = true);
-        
-        final backupService = Provider.of<BackupService>(context, listen: false);
+
+        final backupService =
+            Provider.of<BackupService>(context, listen: false);
         final result = await backupService.restoreFromBackup(backup);
-        
+
         setState(() => _isLoading = false);
-        
+
         AwesomeDialog(
           context: context,
           dialogType: result['success'] ? DialogType.success : DialogType.error,
@@ -234,7 +237,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
                 return null;
               },
-              onSaved: (value) => _settings['taxRate'] = (double.parse(value!) / 100),
+              onSaved: (value) =>
+                  _settings['taxRate'] = (double.parse(value!) / 100),
             ),
             SizedBox(height: 12),
             TextFormField(
@@ -268,7 +272,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
                 return null;
               },
-              onSaved: (value) => _settings['invoiceDueDays'] = int.parse(value!),
+              onSaved: (value) =>
+                  _settings['invoiceDueDays'] = int.parse(value!),
             ),
           ],
         ),
@@ -340,21 +345,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Expanded(
           child: ElevatedButton(
             onPressed: _saveSettings,
-            child: Text('حفظ الإعدادات'),
+            child: const Text('حفظ الإعدادات'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: 15),
+              padding: const EdgeInsets.symmetric(vertical: 15),
             ),
           ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
           child: OutlinedButton(
             onPressed: _loadSettings,
-            child: Text('إعادة تعيين'),
+            child: const Text('إعادة تعيين'),
             style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.symmetric(vertical: 15),
+              padding: const EdgeInsets.symmetric(vertical: 15),
             ),
           ),
         ),

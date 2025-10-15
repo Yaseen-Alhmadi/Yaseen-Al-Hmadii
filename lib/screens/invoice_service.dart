@@ -1,12 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/invoice_model.dart';
+import '../services/auth_service.dart';
 
 class InvoiceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthService _authService;
+
+  InvoiceService(this._authService);
 
   // إنشاء فاتورة تلقائية من قراءة العداد
-  Future<String> createInvoiceFromReading(Map<String, dynamic> readingData) async {
+  Future<String> createInvoiceFromReading(
+      Map<String, dynamic> readingData) async {
     try {
+      // الحصول على userId من المستخدم المسجل حالياً
+      final userId = await _authService.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('لا يوجد مستخدم مسجل دخول');
+      }
+
       // حساب الضريبة (5%)
       double taxRate = 0.05;
       double tax = (readingData['amount'] ?? 0) * taxRate;
@@ -19,6 +30,7 @@ class InvoiceService {
         'customerId': readingData['customerId'],
         'customerName': readingData['customerName'],
         'meterReadingId': readingData['id'],
+        'userId': userId,
         'consumption': readingData['consumption'],
         'rate': readingData['rate'],
         'amount': readingData['amount'],
@@ -30,7 +42,8 @@ class InvoiceService {
         'createdAt': Timestamp.now(),
       };
 
-      DocumentReference docRef = await _firestore.collection('invoices').add(invoiceData);
+      DocumentReference docRef =
+          await _firestore.collection('invoices').add(invoiceData);
       return docRef.id;
     } catch (e) {
       throw Exception('فشل في إنشاء الفاتورة: $e');
@@ -38,30 +51,49 @@ class InvoiceService {
   }
 
   // جلب فواتير العميل
-  Stream<List<Invoice>> getCustomerInvoices(String customerId) {
-    return _firestore
+  Stream<List<Invoice>> getCustomerInvoices(String customerId) async* {
+    // الحصول على userId من المستخدم المسجل حالياً
+    final userId = await _authService.getCurrentUserId();
+    if (userId == null) {
+      yield [];
+      return;
+    }
+
+    await for (var snapshot in _firestore
         .collection('invoices')
         .where('customerId', isEqualTo: customerId)
+        .where('userId', isEqualTo: userId)
         .orderBy('issueDate', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Invoice.fromMap(doc.data(), doc.id))
-            .toList());
+        .snapshots()) {
+      yield snapshot.docs
+          .map((doc) => Invoice.fromMap(doc.data(), doc.id))
+          .toList();
+    }
   }
 
   // جلب جميع الفواتير
-  Stream<List<Invoice>> getAllInvoices() {
-    return _firestore
+  Stream<List<Invoice>> getAllInvoices() async* {
+    // الحصول على userId من المستخدم المسجل حالياً
+    final userId = await _authService.getCurrentUserId();
+    if (userId == null) {
+      yield [];
+      return;
+    }
+
+    await for (var snapshot in _firestore
         .collection('invoices')
+        .where('userId', isEqualTo: userId)
         .orderBy('issueDate', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Invoice.fromMap(doc.data(), doc.id))
-            .toList());
+        .snapshots()) {
+      yield snapshot.docs
+          .map((doc) => Invoice.fromMap(doc.data(), doc.id))
+          .toList();
+    }
   }
 
   // تحديث حالة الفاتورة
-  Future<void> updateInvoiceStatus(String invoiceId, String status, {String? paymentMethod}) async {
+  Future<void> updateInvoiceStatus(String invoiceId, String status,
+      {String? paymentMethod}) async {
     try {
       Map<String, dynamic> updates = {
         'status': status,
@@ -81,8 +113,18 @@ class InvoiceService {
   // جلب إحصائيات الفواتير
   Future<Map<String, dynamic>> getInvoiceStats() async {
     try {
-      final query = await _firestore.collection('invoices').get();
-      final invoices = query.docs.map((doc) => Invoice.fromMap(doc.data(), doc.id)).toList();
+      // الحصول على userId من المستخدم المسجل حالياً
+      final userId = await _authService.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('لا يوجد مستخدم مسجل دخول');
+      }
+
+      final query = await _firestore
+          .collection('invoices')
+          .where('userId', isEqualTo: userId)
+          .get();
+      final invoices =
+          query.docs.map((doc) => Invoice.fromMap(doc.data(), doc.id)).toList();
 
       double totalRevenue = 0;
       double pendingAmount = 0;
